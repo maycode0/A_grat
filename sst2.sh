@@ -24,4 +24,3 @@ python run_guide.py \
     --print_rationale
 
 echo Execution finished.
-pause
