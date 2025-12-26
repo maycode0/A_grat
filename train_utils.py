@@ -253,8 +253,8 @@ def prepare_dataset(configs: dict):
         test_dataset = MovieDataset(configs['test_path'], vocab, 'test')
     elif configs['dataset'] == 'sst2':
         # raise DeprecationWarning
-        train_dataset = SST2Dataset(configs['train_path'], vocab, configs["max_length"], balanced=True)
-        dev_dataset = SST2Dataset(configs['dev_path'], vocab, configs["max_length"])
+        train_dataset = SST2Dataset(configs['train_path'], vocab, configs["max_length"], configs["min_length"],balanced=True)
+        dev_dataset = SST2Dataset(configs['dev_path'], vocab, configs["max_length"], configs["min_length"])
         # test_dataset = SST2AnnotationDataset(configs['test_path'], vocab, configs["max_length"])
         test_dataset = None
     else:

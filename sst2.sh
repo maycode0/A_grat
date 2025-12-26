@@ -9,7 +9,7 @@ python run_guide.py \
     --dev_path data/$dataset/$dataset-validation.json \
     --test_path data/$dataset/$dataset-test.json \
     --max_length 256 \
-    --min_length 4 \
+    --min_length 10 \
     --save_path results/$dataset/ \
     --save_name guide_st \
     --fix_embedding \
