@@ -57,7 +57,7 @@ class BeerDataset(Dataset):
                     # Take the first sentence
                     temp_review_string = ' '.join(temp_review_string).split('.')[0].split(' ')
 
-                self.data_max = max(self.data_max, len(temp_review_string) - 5)
+                self.data_max = max(self.data_max, len(temp_review_string.split()) - 5)
                 # load a score
                 if self.aspect > -1:
                     score = scores[self.aspect]
