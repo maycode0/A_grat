@@ -10,7 +10,7 @@ class SST2Dataset(Dataset):
     def __init__(self, path: str, vocabulary: GloveVocabulary,
                  max_length: int = 256,min_length: int = 10,
                  skip_long_sentence: bool = False,
-                 skip_short_sentence: bool = True,
+                 skip_short_sentence: bool = False,
                  sort_in_mini_batch: bool = True,
                 #  convert_label_to_binary_sentiment: bool = False,
                  balanced: bool = False,
