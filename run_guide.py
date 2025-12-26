@@ -24,6 +24,7 @@ def get_share_args():
     parser.add_argument('--dev_path', type=str, default="data/beer/reviews.aspect0.heldout.txt")
     parser.add_argument('--test_path', type=str, default="data/beer/annotations.json")
     parser.add_argument('--max_length', type=int, default=256, help="maximum input length (skip)")
+    parser.add_argument('--min_length', type=int, default=4, help="minimum input length (skip)")
     parser.add_argument('--save_path', type=str, default='results/beer/')
     parser.add_argument('--save_name', type=str, default='model_beer')
     parser.add_argument('--fix_embedding', action='store_true', default=False)
