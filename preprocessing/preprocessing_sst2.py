@@ -36,9 +36,9 @@ class SST2Dataset(Dataset):
             if skip_short_sentence and len(review.split()) < min_length:
                 continue
             if int(score) == 1:
-                self.positive_indices.append(idx)
+                self.positive_indices.append(len(self.reviews))
             else:
-                self.negative_indices.append(idx)
+                self.negative_indices.append(len(self.reviews))
             self.reviews.append(review)
             self.scores.append(int(score))
             self.data_max = max(self.data_max, len(review.split()))
