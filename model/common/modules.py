@@ -1,5 +1,5 @@
 import torch
-from typing import Literal, Any, Optional
+from typing import Literal, Any, Optional, Tuple, Dict
 
 
 class RNNModule(torch.nn.Module):
@@ -195,7 +195,7 @@ class GuidanceModule(torch.nn.Module):
         return scaling_soft_probs
 
     @staticmethod
-    def calculate_loss(model_output: tuple, labels: torch.Tensor) -> tuple[torch.Tensor, dict[str, Any]]:
+    def calculate_loss(model_output: tuple, labels: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, Any]]:
         """
         :param model_output: forward result
         :param labels: [batch,1]
