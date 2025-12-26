@@ -1,0 +1,119 @@
+import os
+import torch
+import argparse
+
+from model.common import GuidanceModule
+from model import GuidanceBasedRationaleModule
+from train_utils import prepare_dataset, show_config, try_gpu, run_on_annotations, set_seed, train_guide, valid_guide
+from metrics import PerformanceEvaler, RationaleStatistic, RationaleEvaler
+MODEL_TYPE = {
+    'sep': GuidanceBasedRationaleModule
+}
+
+
+def get_share_args():
+    parser = argparse.ArgumentParser(description="Guiding Straight Through Training")
+
+    # Beer specific arguments
+    parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--gpu_id', type=int, default=0)
+    parser.add_argument('--aspect', type=int, default=0)
+    parser.add_argument('--dataset', type=str, default='beer', help='beer/hotel')
+    parser.add_argument('--embeddings', type=str, default="data/glove.6B.100d.txt", )
+    parser.add_argument('--train_path', type=str, default="data/beer/reviews.aspect0.train.txt")
+    parser.add_argument('--dev_path', type=str, default="data/beer/reviews.aspect0.heldout.txt")
+    parser.add_argument('--test_path', type=str, default="data/beer/annotations.json")
+    parser.add_argument('--max_length', type=int, default=256, help="maximum input length (skip)")
+    parser.add_argument('--save_path', type=str, default='results/beer/')
+    parser.add_argument('--save_name', type=str, default='model_beer')
+    parser.add_argument('--fix_embedding', action='store_true', default=False)
+    parser.add_argument('--print_rationale', action='store_true', default=False, help="print rationales in testing")
+    parser.add_argument('--print_rationale_nums', type=int, default=2)
+    parser.add_argument('--task_type', type=str, default='classification')
+    # general arguments
+    parser.add_argument('--num_epochs', type=int, default=300)
+    parser.add_argument('--model', type=str, default='sep', help='sep/rl')
+    parser.add_argument('--batch_size', type=int, default=256)
+    parser.add_argument('--embedding_size', type=int, default=100)
+    parser.add_argument('--hidden_size', type=int, default=200)
+    parser.add_argument('--output_size', type=int, default=2)
+    parser.add_argument('--cell_type', type=str, default='gru', help="rcnn/lstm/gru")
+    # optimization
+    parser.add_argument('--weight_decay', type=float, default=2e-6)
+    parser.add_argument('--dropout', type=float, default=0.2)
+    parser.add_argument('--lr', type=float, default=0.0004)
+    # regularization for nums of selection
+    parser.add_argument('--sparsity', type=float, default=0.13)
+    parser.add_argument('--sparsity_lambda', type=float, default=0.0003)
+    parser.add_argument('--continuity_lambda', type=float, default=2.)
+    # guiding and matching
+    parser.add_argument('--guide_lambda', type=float, default=1.)
+    parser.add_argument('--match_lambda', type=float, default=1.)
+    parser.add_argument('--guide_decay', type=float, default=1e-4)
+    parser.add_argument('--noise_sigma', type=float, default=1.0)
+    # save model
+    parser.add_argument('--history_performance', type=float, default=0.8)
+    # init with skew-selector
+    parser.add_argument('--init_with_bias', action='store_true', default=False)
+    parser.add_argument('--skew_name', type=str, default='skew_st')
+    parser.add_argument('--skew_type', type=str, default='selector', help='predictor/selector')
+    parser.add_argument('--skew_intensity', type=int, default=60)
+    args = parser.parse_args()
+    return args
+
+
+if __name__ == '__main__':
+    configs = get_share_args()
+    configs = vars(configs)
+
+    print('CONFIG DETAIL:')
+    configs = show_config(configs)
+
+    train_device = try_gpu(configs['gpu_id'])
+    print(f'DEVICE:{train_device}')
+
+    print('LOADING DATA:')
+    vocab, train_dataloader, dev_dataloader, test_dataloader = prepare_dataset(configs)
+    set_seed(configs['seed'])
+
+    print('LOADING MODEL:')
+    instantiating_class = MODEL_TYPE[configs['model']]
+    model = instantiating_class(
+        vocab_size=vocab.vocab_size,
+        emb_size=configs['embedding_size'],
+        hidden_size=configs['hidden_size'],
+        output_size=configs['output_size'],
+        dropout=configs['dropout'],
+        sparsity=configs['sparsity'],
+        continuity_lambda=configs['continuity_lambda'],
+        sparsity_lambda=configs['sparsity_lambda'],
+        cell_type=configs['cell_type'],
+        pretrained_embedding=vocab.embedding_matrix,
+        fix_embedding=configs['fix_embedding'],
+        guide_lambda=configs['guide_lambda'],
+        match_lambda=configs['match_lambda'],
+        guide_decay=configs['guide_decay']
+    )
+
+    if configs['init_with_bias']:
+        model_path = f"results/beer/{configs['skew_name']}_{configs['cell_type']}_{configs['aspect']}.{configs['skew_intensity']}"
+        if configs['skew_type'] == 'selector':
+            cell_state_dict = torch.load(model_path + '.selector_cell.pt', map_location=torch.device('cpu'))
+            head_state_dict = torch.load(model_path + '.selector_head.pt', map_location=torch.device('cpu'))
+            model.selector_cell.load_state_dict(cell_state_dict)
+            model.selector_head.load_state_dict(head_state_dict)
+            print('GuidanceModule also inited with biased params.')
+        if configs['skew_type'] == 'predictor':
+            print(f'load skew predictor:{model_path}')
+            cell_state_dict = torch.load(model_path + '.predictor_cell.pt', map_location=torch.device('cpu'))
+            model.selector_head.load_state_dict(
+                torch.load(model_path + '.predictor_head.pt', map_location=torch.device('cpu'))
+            )
+    save_name = f"{configs['save_name']}_{configs['cell_type']}_{configs['task_type']}_{configs['aspect']}.pt"
+    save_name = configs['save_path'] + save_name
+    model.to(train_device)
+    # load model
+    if os.path.exists(save_name):
+        model.load_state_dict(
+            torch.load(save_name, map_location=train_device)
+        )
